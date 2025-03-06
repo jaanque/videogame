@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Estela</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+            overflow: hidden;
+        }
+        .light-theme {
+            --bg-color: #f0f0f0;
+            --grid-color: #ddd;
+            --text-color: #333;
+            --panel-bg: #fff;
+            --panel-border: #ccc;
+            --button-bg: #4a90e2;
+            --button-text: white;
+            --toggle-bg: #aaa;
+            --toggle-circle: #fff;
+        }
+        .dark-theme {
+            --bg-color: #222;
+            --grid-color: #333;
+            --text-color: #f0f0f0;
+            --panel-bg: #333;
+            --panel-border: #444;
+            --button-bg: #555;
+            --button-text: #f0f0f0;
+            --toggle-bg: #555;
+            --toggle-circle: #aaa;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+        }
+        .game-container {
+            position: relative;
+            margin: 0 auto;
+            width: 100%;
+            height: 100vh;
+        }
+        .controls-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+        }
+        .control-item {
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--toggle-bg);
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: var(--toggle-circle);
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider:before {
+            transform: translateX(30px);
+        }
+        .leaderboard {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            min-width: 200px;
+        }
+        .leaderboard h3 {
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .leaderboard-item {
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        .player {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        .message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            text-align: center;
+            display: none;
+        }
+        .message button {
+            margin-top: 15px;
+        }
+        .instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="light-theme">
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="controls-panel">
+            <div class="control-item">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="themeToggle">
+                    <span class="slider"></span>
+                </label>
+                <span style="margin-left: 10px;">Tema Oscuro</span>
+            </div>
+            <div class="control-item">
+                <button id="resetBtn">Reiniciar Juego</button>
+            </div>
+            <div class="control-item">
+                <button id="pauseBtn">Pausar</button>
+            </div>
+        </div>
+        
+        <div class="leaderboard">
+            <h3>Clasificación</h3>
+            <div id="leaderboardContent"></div>
+        </div>
+        
+        <div class="instructions">
+            <p>Usa las teclas de flecha o WASD para mover tu cuadrado. ¡Crea la estela más larga sin chocar!</p>
+            <br>
+            <strong><p>© Jan Queralt</p></strong>
+        </div>
+        
+        <div id="gameOverMessage" class="message">
+            <h2>¡Juego Terminado!</h2>
+            <p id="gameOverReason"></p>
+            <p id="finalScore"></p>
+            <button id="restartBtn">Jugar de Nuevo</button>
+        </div>
+    </div>
+
+    <script>
+        // Configuración del juego
+        const GRID_SIZE = 20;
+        const INITIAL_SPEED = 5;
+        let canvas, ctx, gameWidth, gameHeight;
+        let gridRows, gridCols;
+        let gameLoop, isGameOver = false, isPaused = false;
+        
+        // Jugadores
+        const DIRECTIONS = {
+            UP: { x: 0, y: -1 },
+            DOWN: { x: 0, y: 1 },
+            LEFT: { x: -1, y: 0 },
+            RIGHT: { x: 1, y: 0 }
+        };
+        
+        const COLORS = [
+            '#FF5252', // Rojo (jugador)
+            '#4CAF50', // Verde
+            '#2196F3', // Azul
+            '#FFC107', // Amarillo
+            '#9C27B0',  // Púrpura
+            '#FF5722', // Naranja
+            '#607D8B', // Gris
+            '#00BCD4' // Cian
+        ];
+        
+        let players = [];
+        let player; // Referencia al jugador humano
+        
+        // Función para inicializar el juego
+        function initGame() {
+            // Configurar el canvas
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            
+            // Crear jugadores
+            createPlayers();
+            
+            // Iniciar el bucle del juego
+            if (gameLoop) clearInterval(gameLoop);
+            gameLoop = setInterval(gameStep, 1000 / 15);
+            
+            // Restablecer estado
+            isGameOver = false;
+            isPaused = false;
+            document.getElementById('pauseBtn').textContent = 'Pausar';
+            document.getElementById('gameOverMessage').style.display = 'none';
+        }
+        
+        // Ajustar el tamaño del canvas
+        function resizeCanvas() {
+            const gameContainer = document.querySelector('.game-container');
+            gameWidth = gameContainer.clientWidth;
+            gameHeight = gameContainer.clientHeight;
+            
+            canvas.width = gameWidth;
+            canvas.height = gameHeight;
+            
+            gridCols = Math.floor(gameWidth / GRID_SIZE);
+            gridRows = Math.floor(gameHeight / GRID_SIZE);
+        }
+        
+        // Crear los jugadores
+        function createPlayers() {
+            players = [];
+            
+            // Crear jugador humano
+            const playerX = Math.floor(gridCols / 4);
+            const playerY = Math.floor(gridRows / 2);
+            
+            player = {
+                x: playerX,
+                y: playerY,
+                direction: DIRECTIONS.RIGHT,
+                nextDirection: DIRECTIONS.RIGHT,
+                color: COLORS[0],
+                trail: [{x: playerX, y: playerY}],
+                isHuman: true,
+                name: "Tú",
+                alive: true
+            };
+            
+            players.push(player);
+            
+            // Crear bots
+            const botCount = 7;
+            for (let i = 0; i < botCount; i++) {
+                const botX = Math.floor(gridCols * 3/4);
+                const botY = Math.floor((i + 1) * gridRows / (botCount + 1));
+                
+                const bot = {
+                    x: botX,
+                    y: botY,
+                    direction: DIRECTIONS.LEFT, // Dirección inicial
+                    nextDirection: DIRECTIONS.LEFT,
+                    color: COLORS[i + 1],
+                    trail: [{x: botX, y: botY}],
+                    isHuman: false,
+                    name: `Jan` + ("x" + i + 1),
+                    alive: true,
+                    thinkCounter: 0
+                };
+                
+                players.push(bot);
+            }
+        }
+        
+        // Paso del juego
+        function gameStep() {
+            if (isPaused || isGameOver) return;
+            
+            // Actualizar posiciones
+            updatePositions();
+            
+            // Comprobar colisiones
+            checkCollisions();
+            
+            // Hacer que los bots "piensen"
+            botThink();
+            
+            // Dibujar el juego
+            drawGame();
+            
+            // Actualizar tabla de clasificación
+            updateLeaderboard();
+            
+            // Comprobar fin del juego
+            checkGameOver();
+        }
+        
+        // Actualizar posiciones de los jugadores
+        function updatePositions() {
+            players.forEach(p => {
+                if (!p.alive) return;
+                
+                // Actualizar dirección
+                p.direction = p.nextDirection;
+                
+                // Mover
+                p.x += p.direction.x;
+                p.y += p.direction.y;
+                
+                // Añadir a la estela
+                p.trail.push({x: p.x, y: p.y});
+            });
+        }
+        
+        // Comprobar colisiones
+        function checkCollisions() {
+            players.forEach((player, playerIndex) => {
+                if (!player.alive) return;
+                
+                // Colisión con los bordes
+                if (player.x < 0 || player.y < 0 || player.x >= gridCols || player.y >= gridRows) {
+                    player.alive = false;
+                    return;
+                }
+                
+                // Colisión con la estela de cualquier jugador
+                for (let i = 0; i < players.length; i++) {
+                    const p = players[i];
+                    // Comprobar todas las posiciones de la estela excepto la última (cabeza)
+                    for (let t = 0; t < p.trail.length - 1; t++) {
+                        if (player.x === p.trail[t].x && player.y === p.trail[t].y) {
+                            player.alive = false;
+                            return;
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Hacer que los bots "piensen" y decidan su dirección
+        function botThink() {
+            players.forEach(p => {
+                if (!p.isHuman && p.alive) {
+                    p.thinkCounter++;
+                    
+                    // Pensar cada cierta cantidad de pasos para no cambiar demasiado a menudo
+                    if (p.thinkCounter >= 5) {
+                        p.thinkCounter = 0;
+                        
+                        // Posibles direcciones (excluyendo la opuesta a la actual)
+                        const possibleDirs = [];
+                        
+                        if (p.direction !== DIRECTIONS.DOWN) possibleDirs.push(DIRECTIONS.UP);
+                        if (p.direction !== DIRECTIONS.UP) possibleDirs.push(DIRECTIONS.DOWN);
+                        if (p.direction !== DIRECTIONS.RIGHT) possibleDirs.push(DIRECTIONS.LEFT);
+                        if (p.direction !== DIRECTIONS.LEFT) possibleDirs.push(DIRECTIONS.RIGHT);
+                        
+                        // Evaluar cada dirección
+                        let bestDir = p.direction;
+                        let bestScore = -Infinity;
+                        
+                        possibleDirs.forEach(dir => {
+                            const newX = p.x + dir.x;
+                            const newY = p.y + dir.y;
+                            
+                            // Evitar salir del tablero
+                            if (newX < 0 || newY < 0 || newX >= gridCols || newY >= gridRows) {
+                                return;
+                            }
+                            
+                            // Evitar colisionar con estelas
+                            let collision = false;
+                            for (let i = 0; i < players.length; i++) {
+                                for (let t = 0; t < players[i].trail.length; t++) {
+                                    if (newX === players[i].trail[t].x && newY === players[i].trail[t].y) {
+                                        collision = true;
+                                        break;
+                                    }
+                                }
+                                if (collision) break;
+                            }
+                            
+                            if (collision) return;
+                            
+                            // Calcular una puntuación para esta dirección
+                            let score = Math.random() * 10; // Elemento aleatorio
+                            
+                            // Preferir espacios abiertos
+                            let openSpace = 0;
+                            for (let i = 1; i <= 5; i++) {
+                                const checkX = newX + dir.x * i;
+                                const checkY = newY + dir.y * i;
+                                
+                                if (checkX < 0 || checkY < 0 || checkX >= gridCols || checkY >= gridRows) {
+                                    break;
+                                }
+                                
+                                let hasCollision = false;
+                                for (let j = 0; j < players.length; j++) {
+                                    for (let t = 0; t < players[j].trail.length; t++) {
+                                        if (checkX === players[j].trail[t].x && checkY === players[j].trail[t].y) {
+                                            hasCollision = true;
+                                            break;
+                                        }
+                                    }
+                                    if (hasCollision) break;
+                                }
+                                
+                                if (hasCollision) {
+                                    break;
+                                }
+                                
+                                openSpace++;
+                            }
+                            
+                            score += openSpace * 3;
+                            
+                            // Preferir el centro cuando estás en los bordes
+                            const centerX = gridCols / 2;
+                            const centerY = gridRows / 2;
+                            const distToCenter = Math.sqrt(Math.pow(newX - centerX, 2) + Math.pow(newY - centerY, 2));
+                            
+                            // Si estamos cerca del borde, intentar volver al centro
+                            if (newX < 5 || newY < 5 || newX > gridCols - 5 || newY > gridRows - 5) {
+                                score -= distToCenter * 0.5;
+                            }
+                            
+                            // Actualizar mejor dirección
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestDir = dir;
+                            }
+                        });
+                        
+                        // Establecer la nueva dirección
+                        if (bestScore > -Infinity) {
+                            p.nextDirection = bestDir;
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Dibujar el juego
+        function drawGame() {
+            // Limpiar el canvas
+            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg-color');
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Dibujar la cuadrícula
+            drawGrid();
+            
+            // Dibujar las estelas
+            players.forEach(p => {
+                // Dibujar la estela
+                for (let i = 0; i < p.trail.length; i++) {
+                    ctx.fillStyle = p.color;
+                    
+                    // La cabeza es un poco más grande
+                    if (i === p.trail.length - 1 && p.alive) {
+                        ctx.fillRect(
+                            p.trail[i].x * GRID_SIZE - 2, 
+                            p.trail[i].y * GRID_SIZE - 2, 
+                            GRID_SIZE + 4, 
+                            GRID_SIZE + 4
+                        );
+                    } else {
+                        ctx.fillRect(
+                            p.trail[i].x * GRID_SIZE, 
+                            p.trail[i].y * GRID_SIZE, 
+                            GRID_SIZE, 
+                            GRID_SIZE
+                        );
+                    }
+                }
+            });
+        }
+        
+        // Dibujar la cuadrícula
+        function drawGrid() {
+            ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--grid-color');
+            ctx.lineWidth = 0.5;
+            
+            // Líneas verticales
+            for (let x = 0; x <= gridCols; x++) {
+                ctx.beginPath();
+                ctx.moveTo(x * GRID_SIZE, 0);
+                ctx.lineTo(x * GRID_SIZE, gameHeight);
+                ctx.stroke();
+            }
+            
+            // Líneas horizontales
+            for (let y = 0; y <= gridRows; y++) {
+                ctx.beginPath();
+                ctx.moveTo(0, y * GRID_SIZE);
+                ctx.lineTo(gameWidth, y * GRID_SIZE);
+                ctx.stroke();
+            }
+        }
+        
+        // Actualizar la tabla de clasificación
+        function updateLeaderboard() {
+            const leaderboard = document.getElementById('leaderboardContent');
+            leaderboard.innerHTML = '';
+            
+            // Ordenar jugadores por longitud de estela
+            const sortedPlayers = [...players].sort((a, b) => b.trail.length - a.trail.length);
+            
+            sortedPlayers.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'leaderboard-item';
+                
+                const playerColor = document.createElement('span');
+                playerColor.className = 'player';
+                playerColor.style.backgroundColor = p.color;
+                
+                const playerName = document.createElement('span');
+                playerName.textContent = p.name + (p.alive ? '' : ' (✗)');
+                
+                const score = document.createElement('span');
+                score.textContent = p.trail.length;
+                
+                item.appendChild(playerColor);
+                item.appendChild(playerName);
+                item.appendChild(score);
+                
+                leaderboard.appendChild(item);
+            });
+        }
+        
+        // Comprobar si el juego ha terminado
+        function checkGameOver() {
+            // Si el jugador humano está muerto
+            if (!player.alive) {
+                endGame("¡Has chocado!");
+                return;
+            }
+            
+            // Comprobar si todos los bots están muertos
+            const allBotsDead = players.slice(1).every(p => !p.alive);
+            if (allBotsDead) {
+                endGame("¡Has ganado! Todos los bots han sido eliminados.");
+                return;
+            }
+            
+            // Comprobar si queda un solo jugador vivo que no es el humano
+            const alivePlayers = players.filter(p => p.alive);
+            if (alivePlayers.length === 1 && !alivePlayers[0].isHuman) {
+                endGame(`¡${alivePlayers[0].name} ha ganado!`);
+                return;
+            }
+        }
+        
+        // Finalizar el juego
+        function endGame(reason) {
+            isGameOver = true;
+            clearInterval(gameLoop);
+            
+            const messageElement = document.getElementById('gameOverMessage');
+            const reasonElement = document.getElementById('gameOverReason');
+            const scoreElement = document.getElementById('finalScore');
+            
+            reasonElement.textContent = reason;
+            
+            // Ordenar jugadores por longitud de estela
+            const sortedPlayers = [...players].sort((a, b) => b.trail.length - a.trail.length);
+            
+            let scoreText = "Clasificación final:\n";
+            sortedPlayers.forEach((p, index) => {
+                scoreText += `${index + 1}. ${p.name}: ${p.trail.length} puntos\n`;
+            });
+            
+            scoreElement.textContent = scoreText;
+            messageElement.style.display = 'block';
+        }
+        
+        // Eventos de teclado para controlar al jugador
+        document.addEventListener('keydown', function(e) {
+            if (isGameOver) return;
+            
+            switch(e.key) {
+                // Flechas de dirección
+                case 'ArrowUp':
+                    if (player.direction !== DIRECTIONS.DOWN) {
+                        player.nextDirection = DIRECTIONS.UP;
+                    }
+                    break;
+                case 'ArrowDown':
+                    if (player.direction !== DIRECTIONS.UP) {
+                        player.nextDirection = DIRECTIONS.DOWN;
+                    }
+                    break;
+                case 'ArrowLeft':
+                    if (player.direction !== DIRECTIONS.RIGHT) {
+                        player.nextDirection = DIRECTIONS.LEFT;
+                    }
+                    break;
+                case 'ArrowRight':
+                    if (player.direction !== DIRECTIONS.LEFT) {
+                        player.nextDirection = DIRECTIONS.RIGHT;
+                    }
+                    break;
+                
+                // Teclas WASD
+                case 'w':
+                case 'W':
+                    if (player.direction !== DIRECTIONS.DOWN) {
+                        player.nextDirection = DIRECTIONS.UP;
+                    }
+                    break;
+                case 's':
+                case 'S':
+                    if (player.direction !== DIRECTIONS.UP) {
+                        player.nextDirection = DIRECTIONS.DOWN;
+                    }
+                    break;
+                case 'a':
+                case 'A':
+                    if (player.direction !== DIRECTIONS.RIGHT) {
+                        player.nextDirection = DIRECTIONS.LEFT;
+                    }
+                    break;
+                case 'd':
+                case 'D':
+                    if (player.direction !== DIRECTIONS.LEFT) {
+                        player.nextDirection = DIRECTIONS.RIGHT;
+                    }
+                    break;
+                
+                case ' ':  // Barra espaciadora para pausar
+                    togglePause();
+                    break;
+            }
+        });
+        
+        // Cambiar tema
+        document.getElementById('themeToggle').addEventListener('change', function() {
+            if (this.checked) {
+                document.body.classList.remove('light-theme');
+                document.body.classList.add('dark-theme');
+            } else {
+                document.body.classList.remove('dark-theme');
+                document.body.classList.add('light-theme');
+            }
+        });
+        
+        // Reiniciar el juego
+        document.getElementById('resetBtn').addEventListener('click', initGame);
+        document.getElementById('restartBtn').addEventListener('click', initGame);
+        
+        // Pausar/reanudar
+        document.getElementById('pauseBtn').addEventListener('click', togglePause);
+        
+        function togglePause() {
+            isPaused = !isPaused;
+            document.getElementById('pauseBtn').textContent = isPaused ? 'Reanudar' : 'Pausar';
+        }
+        
+        // Ajustar el tamaño cuando cambia la ventana
+        window.addEventListener('resize', function() {
+            resizeCanvas();
+            drawGame();
+        });
+        
+        // Iniciar el juego
+        window.addEventListener('load', initGame);
+    </script>
+</body>
+</html>
